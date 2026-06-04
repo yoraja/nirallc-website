@@ -155,7 +155,7 @@ section    { padding: 5.5rem 0; }
 .dropdown-menu {
   display: none;
   position: absolute;
-  top: calc(100% + 10px);
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
   background: #fff;
@@ -164,7 +164,18 @@ section    { padding: 5.5rem 0; }
   box-shadow: var(--shadow-lg);
   min-width: 230px;
   padding: .5rem;
+  padding-top: .75rem;
+  margin-top: 0;
   z-index: 200;
+}
+/* Bridge gap so mouse can travel from link to menu */
+.nav-dropdown::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 12px;
 }
 .nav-dropdown:hover .dropdown-menu { display: block; }
 .dropdown-menu a {

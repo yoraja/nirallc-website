@@ -78,8 +78,8 @@ section    { padding: 5.5rem 0; }
   border: 2px solid transparent;
 }
 .btn:hover { transform: translateY(-1px); }
-.btn-primary { background: var(--navy); color: #fff; }
-.btn-primary:hover { background: var(--navy-dark); box-shadow: 0 4px 16px rgba(26,53,105,.35); }
+.btn-primary { background: var(--navy); color: #fff !important; }
+.btn-primary:hover { background: var(--navy-dark); box-shadow: 0 4px 16px rgba(26,53,105,.35); color: #fff !important; }
 .btn-red { background: var(--red); color: #fff; border-color: var(--red); }
 .btn-red:hover { background: var(--red-dark); box-shadow: 0 4px 14px rgba(200,16,46,.35); }
 .btn-outline { border-color: var(--navy); color: var(--navy); background: transparent; }

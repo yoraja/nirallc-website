@@ -1,0 +1,147 @@
+{
+  "cin": "U72900MH2008PTC185044",
+  "isDemo": true,
+  "pan": "AADCB5319B",
+  "about": "BigV Telecom Private Limited (BTPL) operates as a cloud telephony company, providing telephony solutions to businesses — automated cloud contact centres, missed-call and click-to-call services, IVR, toll-free services and allied products. Incorporated in 2008, registered office at Nagpur, Maharashtra.",
+  "website": "http://www.bigv.in/",
+  "email": "accounts@bigv.in",
+  "lastAgm": "30 Sep 2025",
+  "industry": "Information Technology — IT Consulting & Other Services; Telecom — Mobile Service Providers",
+  "pulse": {
+    "composite": 72,
+    "band": "MODERATE",
+    "interpretation": "Strong tax discipline and clean credit record; the broken EPFO trail is the one signal requiring direct explanation from management.",
+    "signals": [
+      { "name": "GST filing discipline", "source": "GSTN filing table", "reading": "All GSTR-1 / GSTR-3B filed on or before due date, FY2025 → May 2026; GSTR-9 annual filed", "score": 95, "band": "Excellent", "weight": 30 },
+      { "name": "EPFO payment behaviour", "source": "EPFO TRRN records", "reading": "Last recorded wage months (Jan–Mar 2020) paid 9–12 months late; no filings since Mar 2020 despite reported headcount of 39", "score": 25, "band": "Red flag", "weight": 30 },
+      { "name": "MCA standing", "source": "MCA master data", "reading": "Active Compliant; AGM held on time (30 Sep 2025); never struck off; one former director DIN-deactivated (KYC)", "score": 90, "band": "Good", "weight": 20 },
+      { "name": "Credit events", "source": "Charges / IBBI / CIBIL", "reading": "Zero open charges; no insolvency proceedings; no suit-filed or wilful-defaulter records", "score": 100, "band": "Clean", "weight": 15 },
+      { "name": "MSME payment complaints", "source": "MSME Samadhaan", "reading": "No delayed-payment cases as respondent; no MSME Form 1 disclosures", "score": 100, "band": "Clean", "weight": 5 }
+    ]
+  },
+  "aiSummary": {
+    "oneLine": "Hyper-growth Nagpur cloud-telephony firm — revenue up ~80× in four years to ₹168.7 Cr, debt fully repaid, ₹13.9 Cr cash — but four governance and compliance signals warrant explanation before extending large credit or partnership.",
+    "signals": [
+      { "label": "Growth & strength", "text": "Revenue ₹2.1 Cr (FY21) → ₹168.7 Cr (FY25); EBITDA margin 15.7%; interest coverage 46×; all borrowings repaid during FY25; cash conversion cycle compressed 161 → 36 days.", "flag": false },
+      { "label": "Remuneration vs profit", "text": "Managerial remuneration of ₹21.8 Cr in FY25 exceeds the year's net profit of ₹19.6 Cr (it was ₹1.8 Cr in FY24).", "flag": true },
+      { "label": "Business-mix shift", "text": "₹112.4 Cr stock-in-trade purchases and ₹11.8 Cr inventory in FY25 indicate a substantial pivot toward trading activity, not pure telephony services — margin durability question.", "flag": true },
+      { "label": "Related parties", "text": "₹11.9 Cr expense with Appynitty Communications (KMP-influenced entity); gross related-party transaction value ₹44.2 Cr per AS-18 disclosure.", "flag": true },
+      { "label": "EPFO trail", "text": "EPFO filings stop at wage month Mar 2020 (33 employees, payments credited 9–12 months late) despite ₹26.7 Cr employee benefit expense and 39 reported employees in FY25 — establishment code change or contribution lapse; verify.", "flag": true },
+      { "label": "Litigation", "text": "Active cluster: Bombay HC arbitration, a Supreme Court SLP, six municipal-body arbitrations (as claimant); historical cheque-bounce (NI Act) matters — all disposed.", "flag": false },
+      { "label": "Notable shareholder", "text": "Tata Elxsi Limited holds 10.01% (constant since at least FY2021).", "flag": false }
+    ]
+  },
+  "financials": {
+    "balanceSheet": {
+      "years": ["31 Mar 2023", "31 Mar 2024", "31 Mar 2025"],
+      "rows": [
+        { "label": "Share Capital", "v": [2222500, 2222500, 2222500] },
+        { "label": "Reserves and Surplus", "v": [17171480, 148085258, 343586069] },
+        { "label": "Total Equity", "v": [19393980, 150307758, 345808569], "total": true },
+        { "label": "Long Term Borrowings", "v": [82967980, 101871948, 0] },
+        { "label": "Trade Payables", "v": [55283287, 140874438, 40637829] },
+        { "label": "Other Current Liabilities", "v": [11079643, 72478611, 193862270] },
+        { "label": "Total Equity & Liabilities", "v": [195955605, 467269134, 580882190], "total": true },
+        { "label": "Net Fixed Assets", "v": [4727421, 15446483, 90189113] },
+        { "label": "Inventories", "v": [8003041, 112311319, 117517718] },
+        { "label": "Trade Receivables", "v": [139084487, 233040752, 89573474] },
+        { "label": "Cash and Bank Balances", "v": [2511862, 23584829, 139010393] },
+        { "label": "Total Assets", "v": [195955605, 467269134, 580882190], "total": true }
+      ]
+    },
+    "pnl": {
+      "years": ["FY2023", "FY2024", "FY2025"],
+      "rows": [
+        { "label": "Net Revenue", "v": [208076607, 814724300, 1687398873] },
+        { "label": "Total Operating Cost", "v": [185805848, 621850101, 1421859997] },
+        { "label": "EBITDA", "v": [22270759, 192874199, 265538876], "total": true },
+        { "label": "Depreciation & Amortization", "v": [473086, 1176580, 3284796] },
+        { "label": "Finance Costs", "v": [12092120, 17285903, 5827975] },
+        { "label": "Profit Before Tax", "v": [9771835, 174968829, 264261640] },
+        { "label": "Profit for the Period", "v": [7111639, 130913778, 195500812], "total": true },
+        { "label": "Managerial Remuneration", "v": [0, 18424297, 218000000] },
+        { "label": "Payment to Auditors", "v": [10000, 30000, 30000] }
+      ]
+    },
+    "ratios": {
+      "years": ["FY2023", "FY2024", "FY2025"],
+      "rows": [
+        { "label": "Revenue Growth (%)", "v": ["183.7", "291.6", "107.1"] },
+        { "label": "EBITDA Margin (%)", "v": ["10.7", "23.7", "15.7"] },
+        { "label": "Net Margin (%)", "v": ["3.4", "16.1", "11.6"] },
+        { "label": "Return on Equity (%)", "v": ["36.7", "87.1", "56.5"] },
+        { "label": "Debt / Equity", "v": ["5.7", "0.7", "0.0"] },
+        { "label": "Interest Coverage", "v": ["1.8", "11.1", "46.3"] },
+        { "label": "Cash Conversion Cycle (days)", "v": ["161", "92", "36"] }
+      ]
+    }
+  },
+  "peers": {
+    "industry": "Information Technology | IT Consulting and Other Services (FY2025, 30-peer sample)",
+    "metrics": [
+      { "label": "Revenue (₹ Cr)", "company": "168.74", "median": "167.41" },
+      { "label": "Revenue Growth (%)", "company": "107.1", "median": "31.0" },
+      { "label": "EBITDA Margin (%)", "company": "15.7", "median": "15.0" },
+      { "label": "ROCE (%)", "company": "78.1", "median": "33.7" },
+      { "label": "Debt / Equity", "company": "0.0", "median": "0.0" }
+    ],
+    "closest": ["ALSHAYA OUTSOURCING COMPANY INDIA PRIVATE LIMITED (Bengaluru)", "ROSMERTA DIGITAL SERVICES LIMITED (New Delhi)", "RIIV INDIA PRIVATE LIMITED (Mumbai)", "KAVACH GLOBAL KONNECTS PRIVATE LIMITED (Ahmedabad)"]
+  },
+  "shareholding": {
+    "summary": "Promoters 89.99% · Public 10.01% · 4 shareholders · 2,22,250 equity shares",
+    "holders": [
+      { "name": "Keshor Gopaldasji Daga", "pct": "67.49", "note": "Person holding DIN" },
+      { "name": "Keshor Daga HUF", "pct": "13.50", "note": "HUF" },
+      { "name": "Tata Elxsi Limited", "pct": "10.01", "note": "Listed corporate shareholder (L85110KA1989PLC009968)" },
+      { "name": "Manjuu Daga", "pct": "9.00", "note": "Individual" }
+    ]
+  },
+  "directors": [
+    { "name": "Ashwin Maganlal Paigwar", "din": "08209652", "role": "Director", "from": "1 Sep 2018", "to": "—", "flag": "" },
+    { "name": "Keshor Gopaldasji Daga", "din": "01506570", "role": "Director (earlier MD 2015–23)", "from": "18 Sep 2023", "to": "—", "flag": "" },
+    { "name": "Rahul Dilip Bhalerao", "din": "10180102", "role": "Additional Director", "from": "29 May 2023", "to": "18 Sep 2023", "flag": "" },
+    { "name": "Rodricks Anil Morris", "din": "02372606", "role": "Whole-time Director", "from": "27 Nov 2012", "to": "1 Sep 2018", "flag": "" },
+    { "name": "Hemant Hajare", "din": "02071315", "role": "Director", "from": "24 Jul 2008", "to": "5 Dec 2012", "flag": "DIN deactivated — DIR-3 KYC non-filing" }
+  ],
+  "auditor": "Alok Rajendra Jhawar (M. No. 139639), Alok Jhawar & Co (FRN 134971W) — FY2015–FY2025",
+  "charges": [
+    { "id": "100141857", "holder": "Yes Bank Limited", "amount": 10500000, "created": "11 Sep 2017", "satisfied": "24 Feb 2020", "property": "Book debts, floating charge, current assets" },
+    { "id": "10216788", "holder": "State Bank of India", "amount": 5300000, "created": "19 Apr 2010", "satisfied": "17 Oct 2017", "property": "Book debts, movable property, floating charge" }
+  ],
+  "gst": {
+    "registrations": [
+      { "gstin": "27AADCB5319B1Z4", "state": "Maharashtra", "status": "Active — Regular", "since": "1 Jul 2017", "latest": "GSTR-1 · May 2026 · filed 10 Jun 2026" }
+    ],
+    "filings": [
+      { "ret": "GSTR-1", "period": "May 2026", "due": "11 Jun 2026", "filed": "10 Jun 2026", "status": "On time" },
+      { "ret": "GSTR-3B", "period": "Apr 2026", "due": "20 May 2026", "filed": "19 May 2026", "status": "On time" },
+      { "ret": "GSTR-1", "period": "Apr 2026", "due": "11 May 2026", "filed": "9 May 2026", "status": "On time" },
+      { "ret": "GSTR-9 (Annual)", "period": "FY2024-25", "due": "—", "filed": "16 Dec 2025", "status": "Filed" }
+    ]
+  },
+  "epfo": {
+    "establishment": "NGNAG2269012000 · Dharampeth (Nagpur) · Live establishment since 24 Jul 2008",
+    "note": "Latest wage month on record: Mar 2020 (33 employees, ₹74,906) — credited 16 Jan 2021, after due date. No filings recorded since.",
+    "months": [
+      { "month": "Mar 2020", "employees": 33, "amount": 74906, "due": "15 Apr 2020", "credited": "16 Jan 2021" },
+      { "month": "Feb 2020", "employees": 30, "amount": 68110, "due": "15 Mar 2020", "credited": "16 Jan 2021" },
+      { "month": "Jan 2020", "employees": 30, "amount": 68110, "due": "15 Feb 2020", "credited": "16 Jan 2021" }
+    ]
+  },
+  "legal": {
+    "summary": "Pending against: 6 (arbitration, civil, enforcement, writ) · Pending by: 15+ (municipal-body arbitrations, civil, SC SLP) · Disposed: 30+ incl. NI Act cheque-bounce matters (all disposed) · Financial-dispute amount directed to pay: ₹2,00,000 (Shubh Enterprises, CS/1158/2020, Gurdaspur, decided 19 Dec 2023)",
+    "highlights": [
+      "HIGH COURT OF BOMBAY — Arbitration ARBAPL/21999/2022 (Ajay Rameshwar Agrawal) — pending",
+      "SUPREME COURT OF INDIA — SLP(C) 005627/2020 (v. Daksha Patel / Nagpur Transwell Power) — pending",
+      "CIVIL COURT SR. DIV., NAGPUR — 6 arbitration matters v. municipal bodies (as claimant) — decided 2023–24",
+      "CJM NAGPUR — 4 NI Act / company-offence matters — all disposed 2014–2023"
+    ]
+  },
+  "compliance": {
+    "ratings": "No credit rating on or after 2015 on record",
+    "struckOff": "Never struck off u/s 248(5)",
+    "bifr": "No BIFR / CDR history",
+    "suitFiled": "No suit-filed cases per credit bureaus"
+  },
+  "waterfall": { "rated": false, "debtListed": false, "drhp": false, "listedParentSubsidiary": false, "conclusion": "No free financials route — source = MCA VPD (₹100). Financials shown here were parsed from MCA filings for this demo." }
+}

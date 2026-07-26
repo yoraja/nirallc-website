@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="description" content="cobio24 — instant company intelligence for India. Search 3.6M+ registered companies, view MCA master data live from open government data, and preview full due-diligence reports." />
+<meta name="theme-color" content="#0b4f9e" />
+<title>cobio24 — Indian Company Intelligence | NIRA LLC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🏢</text></svg>" />
+<style>
+  :root{
+    --brand:#0b4f9e; --brand-dark:#083b77; --brand2:#f28c1e; --ink:#1c2430; --muted:#5b6675;
+    --line:#dde3ea; --bg:#f4f6f9; --card:#ffffff; --zebra:#f4f7fb;
+    --free:#0a7d33; --freebg:#e7f6ec; --cond:#8a6d00; --condbg:#fdf4d7;
+    --paid:#b3261e; --paidbg:#fdeceb; --calc:#4a3aa0; --calcbg:#eeeaff;
+    --radius:12px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html{scroll-behavior:smooth;}
+  body{font-family:"Inter",system-ui,sans-serif; background:var(--bg); color:var(--ink); font-size:15px; line-height:1.5; min-height:100vh;}
+  a{color:var(--brand); text-decoration:none;}
+  .wrap{max-width:920px; margin:0 auto; padding:0 16px;}
+
+  /* header */
+  header.top{position:sticky; top:0; z-index:50; background:rgba(255,255,255,.94); backdrop-filter:blur(8px); border-bottom:1px solid var(--line);}
+  .top-inner{display:flex; align-items:center; gap:10px; padding:10px 0;}
+  .logo{font-size:22px; font-weight:800; color:var(--brand); letter-spacing:-.5px;}
+  .logo span{color:var(--brand2);}
+  .beta{font-size:10px; font-weight:700; background:var(--condbg); color:var(--cond); padding:2px 8px; border-radius:20px; text-transform:uppercase;}
+  .by{margin-left:auto; font-size:12px; color:var(--muted);}
+  .by a{font-weight:600;}
+
+  /* hero + search */
+  .hero{padding:34px 0 10px; text-align:center;}
+  .hero h1{font-size:clamp(22px,5.5vw,34px); font-weight:800; letter-spacing:-.5px;}
+  .hero h1 em{color:var(--brand2); font-style:normal;}
+  .hero p.sub{color:var(--muted); font-size:clamp(13px,3.6vw,15px); margin:8px auto 0; max-width:560px;}
+  .searchbox{position:relative; margin:22px auto 6px; max-width:640px;}
+  .searchbox input{width:100%; font-size:16px; font-family:inherit; padding:15px 48px 15px 18px; border:2px solid var(--brand); border-radius:14px; outline:none; box-shadow:0 4px 18px rgba(11,79,158,.10);}
+  .searchbox input:focus{border-color:var(--brand2);}
+  .searchbox .sicon{position:absolute; right:14px; top:50%; transform:translateY(-50%); color:var(--brand); pointer-events:none;}
+  .hint{font-size:12px; color:var(--muted); margin-top:8px;}
+  .stats{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:16px 0 4px; font-size:12px; color:var(--muted);}
+  .stats .chip{background:var(--card); border:1px solid var(--line); border-radius:20px; padding:4px 12px;}
+  .stats b{color:var(--brand);}
+
+  /* suggestions */
+  .suggest{position:absolute; left:0; right:0; top:calc(100% + 6px); background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.12); max-height:min(56vh,430px); overflow-y:auto; z-index:60; text-align:left; display:none;}
+  .suggest.open{display:block;}
+  .srow{display:block; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--line); padding:12px 14px; cursor:pointer; font-family:inherit; min-height:48px;}
+  .srow:last-child{border-bottom:none;}
+  .srow:hover,.srow.active{background:var(--zebra);}
+  .srow .nm{font-size:14px; font-weight:600; color:var(--ink);}
+  .srow .nm mark{background:#ffe9c7; color:inherit; border-radius:3px; padding:0 1px;}
+  .srow .meta{font-size:11.5px; color:var(--muted); margin-top:2px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+  .pill{font-size:10px; font-weight:700; border-radius:12px; padding:1px 8px; white-space:nowrap;}
+  .pill.ok{background:var(--freebg); color:var(--free);}
+  .pill.bad{background:var(--paidbg); color:var(--paid);}
+  .pill.info{background:#e8f0fb; color:var(--brand);}
+  .pill.warn{background:var(--condbg); color:var(--cond);}
+  .srow.live{background:#f0f6ff;}
+  .srow.live .nm{color:var(--brand);}
+  .snote{padding:10px 14px; font-size:12px; color:var(--muted);}
+
+  /* cards / report */
+  .view{padding:12px 0 60px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin:12px 0; overflow:hidden;}
+  .card h2{font-size:15px; color:var(--brand); margin-bottom:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .card h2 .src{margin-left:auto;}
+  .src{font-size:10px; font-weight:700; border-radius:12px; padding:2px 9px; white-space:nowrap;}
+  .src.free{background:var(--freebg); color:var(--free);}
+  .src.cond{background:var(--condbg); color:var(--cond);}
+  .src.paid{background:var(--paidbg); color:var(--paid);}
+  .src.calc{background:var(--calcbg); color:var(--calc);}
+  .kv{display:grid; grid-template-columns:1fr; gap:0; font-size:13.5px;}
+  .kv div{padding:7px 0; border-bottom:1px dashed var(--line); display:flex; flex-direction:column; gap:2px;}
+  .kv div:last-child{border-bottom:none;}
+  .kv b{color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.3px;}
+  .backbar{display:flex; align-items:center; gap:10px; padding:14px 0 2px;}
+  .backbtn{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:9px 14px; font-family:inherit; font-size:13px; font-weight:600; color:var(--brand); cursor:pointer; min-height:44px;}
+  .cohead{padding:6px 0 0;}
+  .cohead h1{font-size:clamp(18px,4.6vw,26px); font-weight:800; letter-spacing:-.3px;}
+  .cohead .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+  .livestat{font-size:11.5px; color:var(--muted); margin-top:8px;}
+  .livestat .ok{color:var(--free); font-weight:700;}
+  .scrollx{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  table{width:100%; border-collapse:collapse; font-size:12.5px; min-width:480px;}
+  th{background:#e9eef5; text-align:left; padding:7px 8px; border:1px solid var(--line); font-size:11px; white-space:nowrap;}
+  td{padding:6px 8px; border:1px solid var(--line); vertical-align:top;}
+  tr:nth-child(even) td{background:var(--zebra);}
+  td.n{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  tr.tot td{font-weight:700; background:#eef3fa;}
+  .pulse-line{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
+  .pulse-score{font-size:34px; font-weight:800; color:var(--cond);}
+  .pulse-band{font-size:13px; font-weight:700; color:var(--cond);}
+  .ai-item{padding:8px 0; border-bottom:1px dashed var(--line); font-size:13.5px;}
+  .ai-item:last-child{border-bottom:none;}
+  .ai-item b{display:block; font-size:12px;}
+  .ai-item.flag b{color:var(--paid);}
+  .ai-item.flag b::before{content:"⚠ ";}
+  .locked{border:1px dashed var(--line); border-radius:10px; padding:14px; text-align:center; color:var(--muted); font-size:13px; background:#fafbfd;}
+  .srcgrid{display:grid; grid-template-columns:1fr; gap:8px;}
+  .srclink{display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:10px; padding:11px 12px; background:#fbfcfe; min-height:48px;}
+  .srclink .t{font-size:13px; font-weight:600;}
+  .srclink .d{font-size:11px; color:var(--muted);}
+  .srclink .go{margin-left:auto; font-size:12px; font-weight:700; color:var(--brand); white-space:nowrap;}
+  .note{background:#fff8e6; border:1px solid #eedc9a; border-radius:10px; padding:10px 12px; font-size:12px; margin:10px 0;}
+  .demo-tag{background:var(--calcbg); color:var(--calc); font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px;}
+  footer{border-top:1px solid var(--line); background:var(--card); padding:20px 0 30px; margin-top:20px;}
+  footer .wrap{font-size:11.5px; color:var(--muted); display:flex; flex-direction:column; gap:8px;}
+  .err{background:var(--paidbg); color:var(--paid); border-radius:10px; padding:10px 12px; font-size:13px; margin:10px 0;}
+  .skel{height:14px; border-radius:6px; background:linear-gradient(90deg,#eef1f5,#e2e8f0,#eef1f5); background-size:200% 100%; animation:sh 1.2s infinite;}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  @media (min-width:700px){
+    .kv{grid-template-columns:1fr 1fr; column-gap:26px;}
+    .srcgrid{grid-template-columns:1fr 1fr;}
+    .card{padding:20px 22px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="logo">cobio<span>24</span></div>
+    <span class="beta">beta</span>
+    <div class="by">a <a href="https://nirallc.com" rel="noopener">NIRA LLC</a> product</div>
+  </div>
+</header>
+
+<main id="app" class="wrap">
+  <!-- home view -->
+  <section id="home" class="view">
+    <div class="hero">
+      <h1>Company bio, <em>in 24 seconds.</em></h1>
+      <p class="sub">Instant intelligence on Indian companies — search the registry, see live MCA master data, and preview a full due-diligence report built from free public sources.</p>
+      <div class="searchbox">
+        <input id="q" type="text" inputmode="search" autocomplete="off" spellcheck="false"
+               placeholder="Type a company name (min 2 letters) or paste a CIN…" aria-label="Search companies" />
+        <svg class="sicon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+        <div id="suggest" class="suggest" role="listbox"></div>
+      </div>
+      <div class="hint">Try <a href="#" data-try="bigv">BIGV</a>, <a href="#" data-try="probe">Probe</a>, <a href="#" data-try="zauba">Zauba</a>, <a href="#" data-try="tata elxsi">Tata Elxsi</a> — or paste any 21-character CIN for a live registry lookup.</div>
+      <div class="stats">
+        <span class="chip">Search index: <b id="idxcount">…</b> companies (demo subset)</span>
+        <span class="chip">Live CIN lookup: <b>3.67M</b> records via data.gov.in</span>
+        <span class="chip">License: <b>GODL-India</b> (open, commercial-use)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- report view -->
+  <section id="report" class="view" style="display:none"></section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><b>Data attribution (GODL-India):</b> Company master data from the dataset <i>"Registrars of Companies (RoC)-wise Company Master Data"</i>, Ministry of Corporate Affairs, published on <a href="https://www.data.gov.in/catalog/company-master-data" rel="noopener">data.gov.in</a> under the <a href="https://www.data.gov.in/Godl" rel="noopener">Government Open Data License – India</a>. Dataset snapshot: up to 3 Nov 2023; live lookups query the same public API.</div>
+    <div>cobio24 is a technology demonstrator by NIRA LLC. Information is presented as-is from public sources without warranty of accuracy or completeness, and is not financial, legal, or investment advice. The demo company report illustrates the full report format; production reports are generated per order from source filings. No director contact details are collected or displayed.</div>
+    <div>© 2026 NIRA LLC · <a href="https://nirallc.com">nirallc.com</a></div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

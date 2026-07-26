@@ -5,7 +5,10 @@
 (function () {
   "use strict";
 
-  var BUILD = "26072604"; // bump on every deploy — busts browser/CDN caches on data files
+  var BUILD = "26072605";
+  // Waterfall results are republished often; key their URL to a 10-minute bucket so a stale
+  // copy can never sit in a browser cache the way it did on the 26 Jul 03:03 report.
+  var WFV = Math.floor(Date.now() / 600000); // bump on every deploy — busts browser/CDN caches on data files
   var API_BASE = "https://api.data.gov.in/resource/4dbe5667-7b6b-41d7-82af-211562424d9a";
   var API_KEY = "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b";
   var DEMO_CIN = "U72900MH2008PTC185044";
@@ -512,7 +515,7 @@
 
     // published waterfall result (real free-source findings for this company)
     if (!wf) {
-      fetch("data/wf/" + cin + ".json?v=" + BUILD).then(function (r) {
+      fetch("data/wf/" + cin + ".json?v=" + WFV).then(function (r) {
         if (!r.ok) throw new Error("none");
         return r.json();
       }).then(function (j) {

@@ -297,6 +297,32 @@
   }
 
   /* ---------- full report preview (any company) ---------- */
+  /* Key Financial Indicators lifted out of a rating rationale by the pipeline */
+  function extractedFinancialsCard(wf) {
+    var f = wf.financials;
+    if (!f || !f.rows || !f.rows.length) return "";
+    var h = '<div class="card"><h2>Financial Highlights ' +
+      srcBadge("free", "EXTRACTED FROM " + esc((f.publisher || "rating rationale").toUpperCase()) + " — ₹0") + "</h2>" +
+      '<p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Read directly out of the published credit-rating rationale — the figures below are the agency\'s own key-indicator table, not an estimate.</p>' +
+      '<div class="scrollx"><table>';
+    if (f.headers && f.headers.length) {
+      h += "<tr>";
+      f.headers.forEach(function (c, i) { h += (i === 0 ? "<th>" : '<th class="n">') + esc(c) + "</th>"; });
+      h += "</tr>";
+    }
+    f.rows.forEach(function (r) {
+      h += "<tr>";
+      r.forEach(function (c, i) { h += (i === 0 ? "<td>" : '<td class="n">') + esc(c) + "</td>"; });
+      h += "</tr>";
+    });
+    h += "</table></div>";
+    if (f.source) {
+      h += '<p style="font-size:11px;color:var(--muted);margin-top:8px;">Source: <a target="_blank" rel="noopener" href="' +
+        esc(f.source) + '">' + esc(f.title || f.source) + "</a></p>";
+    }
+    return h + "</div>";
+  }
+
   /* Real waterfall result, published by db/batch_waterfall.py to data/wf/<CIN>.json */
   function waterfallResultCard(wf) {
     var tone = wf.cost === 0 ? "free" : (wf.verdict === "NO FREE ROUTE" ? "paid" : "cond");
@@ -393,6 +419,7 @@
       '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">See the <a href="#/c/' + DEMO_CIN + '">completed demo report</a> for a computed Pulse.</p></div>';
     h += '<div class="card"><h2>AI Analyst Summary ' + srcBadge("calc", "PIPELINE — AI-generated") + '</h2><div class="locked">🤖 Written automatically once the sections below are populated: one-line verdict, growth &amp; strength read, red-flag digest (remuneration vs profit, related-party concentration, filing gaps), litigation posture, notable shareholders.</div></div>';
     h += wf ? waterfallResultCard(wf) : waterfallCard(row);
+    if (wf && wf.financials) h += extractedFinancialsCard(wf);
     h += '<div class="card"><h2>Balance Sheet &amp; P&amp;L (12 years) ' + srcBadge("paid", "MCA AOC-4 — via waterfall or ₹100") + '</h2><div class="scrollx"><table><tr><th></th><th class="n">FY (latest−2)</th><th class="n">FY (latest−1)</th><th class="n">FY (latest)</th></tr>' +
       "<tr><td>Net Revenue</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
       "<tr><td>EBITDA</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
@@ -433,9 +460,23 @@
     document.title = (row ? row.n + " — " : "") + "cobio24 report";
 
     function render(r, liveState) {
-      // fall back to the published waterfall record when the index and live API both miss,
-      // so a direct link still produces a usable report instead of an error
-      if (!r && wf && wf.name) r = { c: cin, n: wf.name };
+      // The published waterfall record carries a full registry snapshot from the local MCA
+      // database. Use it to fill anything the index/live API did not supply, so a report is
+      // never blank just because the public API is rate-limited.
+      if (wf && wf.master) {
+        var m = wf.master;
+        r = r || { c: cin };
+        r.n = r.n || m.name;
+        r.s = r.s || m.status; r.cl = r.cl || m["class"]; r.cat = r.cat || m.category;
+        r.l = r.l || m.listing; r.d = r.d || m.reg_date; r.ac = r.ac || m.auth_capital;
+        r.pc = r.pc || m.paidup_capital; r.r = r.r || m.roc; r.st = r.st || m.state;
+        r.ic = r.ic || m.industry; r.nic = r.nic || m.nic; r.ad = r.ad || m.address;
+        if (!liveState || /unreachable|refreshing/.test(liveState)) {
+          liveState = "Registry snapshot from the cobio24 database · " + esc(wf.generated);
+        }
+      } else if (!r && wf && wf.name) {
+        r = { c: cin, n: wf.name };
+      }
       var chips = "";
       if (r) {
         if (r.s) chips += (String(r.s).toLowerCase().indexOf("active") === 0 ? '<span class="pill ok">' : '<span class="pill bad">') + esc(r.s) + "</span>";

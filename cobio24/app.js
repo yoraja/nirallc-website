@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "26072603"; // bump on every deploy — busts browser/CDN caches on data files
+  var BUILD = "26072604"; // bump on every deploy — busts browser/CDN caches on data files
   var API_BASE = "https://api.data.gov.in/resource/4dbe5667-7b6b-41d7-82af-211562424d9a";
   var API_KEY = "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b";
   var DEMO_CIN = "U72900MH2008PTC185044";
@@ -19,8 +19,8 @@
   var $report = document.getElementById("report");
   var $idxcount = document.getElementById("idxcount");
 
-  var manifest = null, deepSet = {}, suffixes = {};
-  var shardCache = {}, byCIN = {}, demoData = null, activeIdx = -1, searchSeq = 0;
+  var manifest = null, deepSet = {}, suffixes = {}, statuses = {};
+  var shardCache = {}, byCIN = {}, wfCache = {}, demoData = null, activeIdx = -1, searchSeq = 0;
 
   // always-available featured rows (demo reliability, independent of shard loading)
   var FEATURED = [
@@ -59,6 +59,7 @@
     manifest = m;
     (m.deep || []).forEach(function (p) { deepSet[p] = 1; });
     suffixes = m.suffixes || {};
+    statuses = m.statuses || {};
     $idxcount.textContent = (m.total || 0).toLocaleString("en-IN");
   }).catch(function () {
     $idxcount.textContent = "unavailable";
@@ -80,7 +81,12 @@
       if (!r.ok) throw new Error("no shard");
       return r.json();
     }).then(function (rows) {
-      var out = rows.map(function (a) { return { c: a[0], n: a[1] + (suffixes[a[2]] || "") }; });
+      var out = rows.map(function (a) {
+        var o = { c: a[0], n: a[1] + (suffixes[a[2]] || "") };
+        if (a.length > 3) o.s = statuses[a[3]] || "Inactive";  // absent code === Active
+        else o.s = "Active";
+        return o;
+      });
       shardCache[file] = out;
       out.forEach(function (r) { if (!byCIN[r.c]) byCIN[r.c] = r; });
       return out;
@@ -100,13 +106,16 @@
     rows.forEach(function (r) {
       var nm = esc(r.n).replace(new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "i"), "<mark>$1</mark>");
       var demo = r.c === DEMO_CIN ? ' <span class="pill warn">FULL DEMO REPORT</span>' : "";
+      var st = r.s && r.s !== "Active"
+        ? '<span class="pill bad">' + esc(r.s) + "</span>"
+        : '<span class="pill ok">Active</span>';
       html += '<button class="srow" data-cin="' + esc(r.c) + '"><div class="nm">' + nm + demo +
-        '</div><div class="meta"><span>' + esc(r.c) + "</span><span>" + esc(stateFromCIN(r.c)) + "</span></div></button>";
+        '</div><div class="meta"><span>' + esc(r.c) + "</span><span>" + esc(stateFromCIN(r.c)) + "</span>" + st + "</div></button>";
     });
     if (opts.partial) {
-      html += '<div class="snote">Showing the largest matches — type one more letter to search all companies starting with “' + esc(q.slice(0, 2).toUpperCase()) + '”.</div>';
+      html += '<div class="snote">Showing the largest matches by capital — type one more letter to search every company starting with “' + esc(q.slice(0, 2).toUpperCase()) + '”.</div>';
     } else if (!rows.length && !opts.cin) {
-      html += '<div class="snote">No active company starts with “' + esc(q) + '”. The index matches how a name <b>begins</b> — try the first word of the legal name, or paste an exact CIN.</div>';
+      html += '<div class="snote">No company starts with “' + esc(q) + '”. The index matches how a name <b>begins</b> — try the first word of the legal name, or paste an exact CIN.</div>';
     } else if (opts.more) {
       html += '<div class="snote">' + opts.more.toLocaleString("en-IN") + " more matches — keep typing to narrow.</div>";
     }
@@ -288,6 +297,55 @@
   }
 
   /* ---------- full report preview (any company) ---------- */
+  /* Real waterfall result, published by db/batch_waterfall.py to data/wf/<CIN>.json */
+  function waterfallResultCard(wf) {
+    var tone = wf.cost === 0 ? "free" : (wf.verdict === "NO FREE ROUTE" ? "paid" : "cond");
+    var color = wf.cost === 0 ? "var(--free)" : "var(--paid)";
+    var h = '<div class="card"><h2>Financials Source Waterfall ' + srcBadge(tone, "RUN " + esc(wf.generated)) + "</h2>" +
+      '<p style="font-size:15px;font-weight:700;color:' + color + ';margin-bottom:4px;">' + esc(wf.verdict) +
+      (wf.cost === 0 ? " — data cost ₹0" : " — data cost ₹" + wf.cost) + "</p>" +
+      '<p style="font-size:13px;margin-bottom:10px;">' + esc(wf.summary) + "</p>";
+
+    var R = wf.routes || {}, rows = [];
+    rows.push(["Listed equity (exchange filings free)", R.listed_equity ? "YES" : "No", R.listed_equity, null]);
+    rows.push(["Credit-rating rationale (carries key financials)",
+      (R.cra && R.cra.searched) ? ((R.cra.hits || []).length + " document(s) found") : "not searched",
+      !!(R.cra && (R.cra.hits || []).length), R.cra]);
+    rows.push(["SEBI offer document (3 yrs restated financials)",
+      (R.drhp && R.drhp.searched) ? ((R.drhp.hits || []).length + " document(s) found") : "not searched",
+      !!(R.drhp && (R.drhp.hits || []).length), R.drhp]);
+    rows.push(["Exchange filings (listed debt, Reg 52 results)",
+      (R.exchange && R.exchange.searched) ? ((R.exchange.hits || []).length + " document(s) found") : "not searched",
+      !!(R.exchange && (R.exchange.hits || []).length), R.exchange]);
+    rows.push(["Insolvency proceedings (IBBI)",
+      R.ibbi ? (R.ibbi.checked ? (R.ibbi.insolvency ? "PROCEEDINGS FOUND" : "none on record") : "check failed") : "—",
+      R.ibbi && R.ibbi.checked && !R.ibbi.insolvency, null]);
+
+    h += '<div class="scrollx"><table><tr><th>Route checked</th><th>Result</th></tr>';
+    rows.forEach(function (r) {
+      var mark = r[2] ? '<span style="color:var(--free);font-weight:700;">✓ </span>' : '<span style="color:var(--muted);">— </span>';
+      h += "<tr><td>" + esc(r[0]) + "</td><td>" + mark + esc(r[1]) + "</td></tr>";
+    });
+    h += "</table></div>";
+
+    var found = [];
+    ["cra", "drhp", "exchange"].forEach(function (k) {
+      ((R[k] && R[k].hits) || []).forEach(function (hit) { found.push(hit); });
+    });
+    if (found.length) {
+      h += '<h3 style="font-size:13px;margin:12px 0 6px;color:var(--brand);">Free financial documents located for this company</h3><div class="srcgrid">';
+      found.forEach(function (f) {
+        h += '<a class="srclink" target="_blank" rel="noopener" href="' + esc(f.u) + '"><div><div class="t">' +
+          esc(f.t || "document") + '</div><div class="d">' + esc((f.s || "").slice(0, 110)) + '</div></div><span class="go">Open →</span></a>';
+      });
+      h += "</div>";
+    }
+    if (R.ibbi && R.ibbi.url) {
+      h += '<p style="font-size:11px;color:var(--muted);margin-top:8px;">IBBI record checked at <a target="_blank" rel="noopener" href="' + esc(R.ibbi.url) + '">ibbi.gov.in</a> for this CIN.</p>';
+    }
+    return h + "</div>";
+  }
+
   function waterfallCard(row) {
     var name = row.n || row.c;
     var listed = String(row.l || "").toLowerCase() === "listed";
@@ -321,7 +379,7 @@
       "</div></div>";
   }
 
-  function shellSections(row) {
+  function shellSections(row, wf) {
     var name = row.n || "";
     var h = "";
     h += '<div class="card"><h2>Compliance Pulse™ ' + srcBadge("calc", "PIPELINE — computed from free signals") + '</h2>' +
@@ -334,7 +392,7 @@
       "<tr><td>MSME payment complaints</td><td>MSME Samadhaan</td><td class='n'>5%</td></tr>" +
       '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">See the <a href="#/c/' + DEMO_CIN + '">completed demo report</a> for a computed Pulse.</p></div>';
     h += '<div class="card"><h2>AI Analyst Summary ' + srcBadge("calc", "PIPELINE — AI-generated") + '</h2><div class="locked">🤖 Written automatically once the sections below are populated: one-line verdict, growth &amp; strength read, red-flag digest (remuneration vs profit, related-party concentration, filing gaps), litigation posture, notable shareholders.</div></div>';
-    h += waterfallCard(row);
+    h += wf ? waterfallResultCard(wf) : waterfallCard(row);
     h += '<div class="card"><h2>Balance Sheet &amp; P&amp;L (12 years) ' + srcBadge("paid", "MCA AOC-4 — via waterfall or ₹100") + '</h2><div class="scrollx"><table><tr><th></th><th class="n">FY (latest−2)</th><th class="n">FY (latest−1)</th><th class="n">FY (latest)</th></tr>' +
       "<tr><td>Net Revenue</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
       "<tr><td>EBITDA</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
@@ -371,9 +429,13 @@
 
     var row = byCIN[cin] || null;
     var isDemo = cin === DEMO_CIN;
+    var wf = wfCache[cin] || null;
     document.title = (row ? row.n + " — " : "") + "cobio24 report";
 
     function render(r, liveState) {
+      // fall back to the published waterfall record when the index and live API both miss,
+      // so a direct link still produces a usable report instead of an error
+      if (!r && wf && wf.name) r = { c: cin, n: wf.name };
       var chips = "";
       if (r) {
         if (r.s) chips += (String(r.s).toLowerCase().indexOf("active") === 0 ? '<span class="pill ok">' : '<span class="pill bad">') + esc(r.s) + "</span>";
@@ -395,7 +457,7 @@
           '<p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Complete 14-section format — financials, shareholding, directors, charges, GST &amp; EPFO discipline, litigation, ratings, Compliance Pulse™ and AI analyst summary.</p>' +
           '<button class="backbtn" style="background:var(--brand);color:#fff;border:none;font-size:14px;padding:12px 22px;" onclick="window.c24ToggleFull()">📄 Generate Full Report (free preview)</button>' +
           '<p style="font-size:11px;color:var(--muted);margin-top:8px;">Live sections populate instantly; gated sections render in-structure with their free-source lookups pre-filled.</p></div>' +
-          '<div id="fullreport" style="display:none;">' + derivedComplianceCard(r) + shellSections(r) + "</div>";
+          '<div id="fullreport" style="display:none;">' + derivedComplianceCard(r) + shellSections(r, wf) + "</div>";
       }
       $report.innerHTML = h;
     }
@@ -406,6 +468,20 @@
     };
 
     render(row, row ? "Index data · refreshing live from data.gov.in…" : "Looking up live from data.gov.in…");
+
+    // published waterfall result (real free-source findings for this company)
+    if (!wf) {
+      fetch("data/wf/" + cin + ".json?v=" + BUILD).then(function (r) {
+        if (!r.ok) throw new Error("none");
+        return r.json();
+      }).then(function (j) {
+        wfCache[cin] = j; wf = j;
+        if (location.hash.indexOf(cin) === -1) return;
+        var wasOpen = document.getElementById("fullreport") && document.getElementById("fullreport").style.display !== "none";
+        render(byCIN[cin] || row, lastLiveState);
+        if (wasOpen) window.c24ToggleFull();
+      }).catch(function () { /* not yet published for this company */ });
+    }
 
     if (isDemo && !demoData) {
       fetch("data/bigv-demo.json?v=" + BUILD).then(function (x) { return x.json(); }).then(function (d) {

@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "26072608";
+  var BUILD = "26072609";
   // Waterfall results are republished often; key their URL to a 10-minute bucket so a stale
   // copy can never sit in a browser cache the way it did on the 26 Jul 03:03 report.
   var WFV = Math.floor(Date.now() / 600000); // bump on every deploy — busts browser/CDN caches on data files
@@ -551,8 +551,20 @@
         pendRow(5, "MCA V3 director master data — free to a human, closed to software (captcha + login)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") +
         '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">Names, DINs and directorship networks only — no personal contact details, by design. Companies that have filed a SEBI offer document get this section free (see above).</p></div>';
     }
-    h += '<div class="card"><h2>Charges (Borrowing Security) ' + srcBadge("cond", "MCA INDEX OF CHARGES — FREE, BUT CAPTCHA-GATED") + '</h2><div class="scrollx"><table><tr><th>Holder</th><th class="n">Amount</th><th>Created</th><th>Status</th></tr>' +
-      pendRow(4, "MCA Index of Charges — free to a human, closed to software (captcha)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") + "</table></div></div>";
+    var fac = wf && wf.facilities;
+    if (fac && (fac.rows || []).length) {
+      h += '<div class="card"><h2>Debt Facilities ' + srcBadge("free", "CRA RATIONALE — FREE · ₹0") + "</h2>" +
+        '<p style="font-size:12px;color:var(--muted);margin-bottom:8px;">MCA’s index of charges is captcha-locked, so this uses the closest open equivalent: every facility the rating agency rates, with its size' +
+        (fac.total ? ' — <b>' + esc(fac.total.label) + ": " + esc(fac.total.amount) + "</b>" : "") + ".</p>" +
+        '<div class="scrollx"><table><tr><th>Facility</th><th class="n">Amount</th><th>Rating</th></tr>';
+      fac.rows.forEach(function (r) {
+        h += "<tr><td>" + esc(r.facility) + '</td><td class="n">' + esc(r.amount || "—") + "</td><td>" + esc(r.rating) + "</td></tr>";
+      });
+      h += '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">Rated facilities are not identical to registered charges — they show what the company borrows, not the security filed at MCA.</p></div>';
+    } else {
+      h += '<div class="card"><h2>Charges (Borrowing Security) ' + srcBadge("cond", "MCA INDEX OF CHARGES — FREE, BUT CAPTCHA-GATED") + '</h2><div class="scrollx"><table><tr><th>Holder</th><th class="n">Amount</th><th>Created</th><th>Status</th></tr>' +
+        pendRow(4, "MCA Index of Charges — free to a human, closed to software (captcha)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") + "</table></div></div>";
+    }
     h += '<div class="card"><h2>GST Registrations &amp; Filing Discipline ' + srcBadge("cond", "GSTN — FREE* (captcha)") + '</h2><div class="scrollx"><table><tr><th>GSTIN</th><th>State</th><th>Status</th><th>Filing history</th></tr>' +
       pendRow(4, "gst.gov.in Search Taxpayer (by PAN) + Show Filing Table", "https://services.gst.gov.in/services/searchtp", "open GST search") + "</table></div></div>";
     h += '<div class="card"><h2>EPFO Payment Behaviour ' + srcBadge("cond", "EPFO — FREE* (captcha)") + '</h2><div class="scrollx"><table><tr><th>Establishment</th><th class="n">Employees</th><th class="n">Amount</th><th>Timeliness</th></tr>' +

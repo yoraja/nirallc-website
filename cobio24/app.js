@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "26072606";
+  var BUILD = "26072607";
   // Waterfall results are republished often; key their URL to a 10-minute bucket so a stale
   // copy can never sit in a browser cache the way it did on the 26 Jul 03:03 report.
   var WFV = Math.floor(Date.now() / 600000); // bump on every deploy — busts browser/CDN caches on data files
@@ -447,6 +447,53 @@
       "</div></div>";
   }
 
+  function drhpTable(sec, title, badge, note) {
+    if (!sec || !(sec.rows || []).length) return "";
+    var h = '<div class="card"><h2>' + title + " " + srcBadge("free", badge) + '</h2><div class="scrollx"><table>';
+    if (sec.headers && sec.headers.length) {
+      h += "<tr>";
+      sec.headers.forEach(function (c, i) { h += (i === 0 ? "<th>" : '<th class="n">') + esc(c) + "</th>"; });
+      h += "</tr>";
+    }
+    sec.rows.forEach(function (r) {
+      h += "<tr>";
+      r.forEach(function (c, i) { h += (i === 0 ? "<td>" : '<td class="n">') + esc(c) + "</td>"; });
+      h += "</tr>";
+    });
+    h += "</table></div>";
+    if (note) h += '<p style="font-size:11px;color:var(--muted);margin-top:6px;">' + note + "</p>";
+    return h + "</div>";
+  }
+
+  function drhpSections(wf) {
+    var d = wf.drhp;
+    if (!d) return "";
+    var src = '<p style="font-size:11px;color:var(--muted);margin-top:6px;">From the company\'s SEBI offer document — free, audited and restated. <a target="_blank" rel="noopener" href="' + esc(d.source) + '">Open the filing →</a></p>';
+    var h = "";
+    h += drhpTable(d.balance_sheet, "Balance Sheet (restated, 3 years)",
+      "SEBI DRHP — FREE · ₹0", "Figures as printed in the offer document (₹ million). Source pages " +
+      esc((d.balance_sheet && d.balance_sheet.pages || []).join(", ")) + ".");
+    h += drhpTable(d.profit_loss, "Profit &amp; Loss (restated, 3 years)",
+      "SEBI DRHP — FREE · ₹0", "Figures as printed in the offer document (₹ million).");
+    if (d.directors && (d.directors.rows || []).length) {
+      h += '<div class="card"><h2>Directors &amp; Key Management ' + srcBadge("free", "SEBI DRHP — FREE") +
+        '</h2><div class="scrollx"><table><tr><th>Name</th><th>DIN</th><th>Role</th></tr>';
+      d.directors.rows.forEach(function (r) {
+        h += "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.din) + "</td><td>" + esc(r.role || "—") + "</td></tr>";
+      });
+      h += "</table></div>" + src + "</div>";
+    }
+    if (d.litigation && d.litigation.text) {
+      h += '<div class="card"><h2>Outstanding Litigation ' + srcBadge("free", "SEBI DRHP — FREE") +
+        '</h2><p style="font-size:12.5px;">' + esc(d.litigation.text.slice(0, 900)) + "…</p>" + src + "</div>";
+    }
+    if (d.capital_structure && d.capital_structure.text) {
+      h += '<div class="card"><h2>Capital Structure ' + srcBadge("free", "SEBI DRHP — FREE") +
+        '</h2><p style="font-size:12.5px;">' + esc(d.capital_structure.text.slice(0, 700)) + "…</p></div>";
+    }
+    return h;
+  }
+
   function shellSections(row, wf) {
     var name = row.n || "";
     var h = "";
@@ -469,15 +516,20 @@
       h += '<div class="card"><h2>Analyst Summary ' + srcBadge("calc", "PIPELINE") + '</h2><div class="locked">🤖 Written automatically once financials are extracted: growth and profitability read, leverage, asset quality, rating interpretation and a red-flag digest.</div></div>';
     }
     if (wf && wf.rating && wf.rating.rating) h += ratingCard(wf.rating);
+    var drhpHTML = wf ? drhpSections(wf) : "";
     h += wf ? waterfallResultCard(wf) : waterfallCard(row);
     if (wf && wf.financials) h += extractedFinancialsCard(wf);
-    h += '<div class="card"><h2>Balance Sheet &amp; P&amp;L (12 years) ' + srcBadge("paid", "MCA AOC-4 — via waterfall or ₹100") + '</h2><div class="scrollx"><table><tr><th></th><th class="n">FY (latest−2)</th><th class="n">FY (latest−1)</th><th class="n">FY (latest)</th></tr>' +
-      "<tr><td>Net Revenue</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
-      "<tr><td>EBITDA</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
-      "<tr><td>Profit for the Period</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
-      "<tr><td>Total Equity</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
-      "<tr><td>Total Assets</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
-      pendRow(4, "AOC-4 filings (waterfall above decides free vs ₹100)", null) + "</table></div></div>";
+    if (drhpHTML) {
+      h += drhpHTML;
+    } else {
+      h += '<div class="card"><h2>Balance Sheet &amp; P&amp;L (12 years) ' + srcBadge("paid", "MCA AOC-4 — via waterfall or ₹100") + '</h2><div class="scrollx"><table><tr><th></th><th class="n">FY (latest−2)</th><th class="n">FY (latest−1)</th><th class="n">FY (latest)</th></tr>' +
+        "<tr><td>Net Revenue</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
+        "<tr><td>EBITDA</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
+        "<tr><td>Profit for the Period</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
+        "<tr><td>Total Equity</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
+        "<tr><td>Total Assets</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
+        pendRow(4, "AOC-4 filings (waterfall above decides free vs ₹100)", null) + "</table></div></div>";
+    }
     if (wf && wf.ratios && (wf.ratios.rows || []).length) {
       h += '<div class="card"><h2>Derived Ratios ' + srcBadge("calc", "COMPUTED FROM THE EXTRACTED FIGURES") + '</h2><div class="scrollx"><table><tr><th></th>';
       (wf.ratios.headers || []).forEach(function (c) { h += '<th class="n">' + esc(c) + "</th>"; });

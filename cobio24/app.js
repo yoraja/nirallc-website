@@ -6,6 +6,7 @@
 (function () {
   "use strict";
 
+  var BUILD = "26072602"; // bump on every deploy — busts browser/CDN caches on data files
   var API_BASE = "https://api.data.gov.in/resource/4dbe5667-7b6b-41d7-82af-211562424d9a";
   var API_KEY = "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b"; // public sample key (per-CIN lookups only)
   var DEMO_CIN = "U72900MH2008PTC185044";
@@ -36,7 +37,7 @@
   function gq(terms) { return "https://www.google.com/search?q=" + encodeURIComponent(terms); }
 
   /* ---------- index load ---------- */
-  fetch("data/companies.json").then(function (r) { return r.json(); }).then(function (rows) {
+  fetch("data/companies.json?v=" + BUILD).then(function (r) { return r.json(); }).then(function (rows) {
     INDEX = rows || [];
     INDEX.forEach(function (r) { if (r.c) byCIN[r.c] = r; });
     $idxcount.textContent = INDEX.length.toLocaleString("en-IN");
@@ -355,7 +356,7 @@
     render(row, row ? "Showing bundled index data · refreshing live from data.gov.in…" : "Looking up live from data.gov.in…");
 
     if (isDemo && !demoData) {
-      fetch("data/bigv-demo.json").then(function (x) { return x.json(); }).then(function (d) { demoData = d; if (location.hash.indexOf(cin) > -1) render(byCIN[cin] || null, lastLiveState); });
+      fetch("data/bigv-demo.json?v=" + BUILD).then(function (x) { return x.json(); }).then(function (d) { demoData = d; if (location.hash.indexOf(cin) > -1) render(byCIN[cin] || null, lastLiveState); });
     }
 
     var lastLiveState = row ? "Bundled index data (live refresh unavailable)" : "";

@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "26072607";
+  var BUILD = "26072608";
   // Waterfall results are republished often; key their URL to a 10-minute bucket so a stale
   // copy can never sit in a browser cache the way it did on the 26 Jul 03:03 report.
   var WFV = Math.floor(Date.now() / 600000); // bump on every deploy — busts browser/CDN caches on data files
@@ -546,20 +546,44 @@
         "</table></div></div>";
     }
     h += '<div class="card"><h2>Shareholding &amp; Securities ' + srcBadge("paid", "MGT-7 / PAS-3 — via ₹100 docs") + '</h2><div class="scrollx"><table><tr><th>Holder</th><th class="n">%</th><th>Remarks</th></tr>' + pendRow(3, "MGT-7 annual return", null) + "</table></div></div>";
-    h += '<div class="card"><h2>Directors &amp; Signatories ' + srcBadge("free", "MCA DIN data — FREE") + '</h2><div class="scrollx"><table><tr><th>Name</th><th>DIN</th><th>Role</th><th>Tenure</th><th>Other directorships</th></tr>' +
-      pendRow(5, "MCA V3 director master data (free, captcha-gated)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") +
-      '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">Names, DINs and directorship networks only — no personal contact details, by design.</p></div>';
-    h += '<div class="card"><h2>Charges (Borrowing Security) ' + srcBadge("free", "MCA Index of Charges — FREE") + '</h2><div class="scrollx"><table><tr><th>Holder</th><th class="n">Amount</th><th>Created</th><th>Status</th></tr>' +
-      pendRow(4, "MCA Index of Charges (free, captcha-gated)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") + "</table></div></div>";
+    if (!(wf && wf.drhp && wf.drhp.directors)) {
+      h += '<div class="card"><h2>Directors &amp; Signatories ' + srcBadge("cond", "MCA DIN data — FREE, BUT CAPTCHA-GATED") + '</h2><div class="scrollx"><table><tr><th>Name</th><th>DIN</th><th>Role</th><th>Tenure</th><th>Other directorships</th></tr>' +
+        pendRow(5, "MCA V3 director master data — free to a human, closed to software (captcha + login)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") +
+        '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">Names, DINs and directorship networks only — no personal contact details, by design. Companies that have filed a SEBI offer document get this section free (see above).</p></div>';
+    }
+    h += '<div class="card"><h2>Charges (Borrowing Security) ' + srcBadge("cond", "MCA INDEX OF CHARGES — FREE, BUT CAPTCHA-GATED") + '</h2><div class="scrollx"><table><tr><th>Holder</th><th class="n">Amount</th><th>Created</th><th>Status</th></tr>' +
+      pendRow(4, "MCA Index of Charges — free to a human, closed to software (captcha)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") + "</table></div></div>";
     h += '<div class="card"><h2>GST Registrations &amp; Filing Discipline ' + srcBadge("cond", "GSTN — FREE* (captcha)") + '</h2><div class="scrollx"><table><tr><th>GSTIN</th><th>State</th><th>Status</th><th>Filing history</th></tr>' +
       pendRow(4, "gst.gov.in Search Taxpayer (by PAN) + Show Filing Table", "https://services.gst.gov.in/services/searchtp", "open GST search") + "</table></div></div>";
     h += '<div class="card"><h2>EPFO Payment Behaviour ' + srcBadge("cond", "EPFO — FREE* (captcha)") + '</h2><div class="scrollx"><table><tr><th>Establishment</th><th class="n">Employees</th><th class="n">Amount</th><th>Timeliness</th></tr>' +
       pendRow(4, "EPFO establishment + TRRN search — search “" + esc(name) + "”", "https://unifiedportal-epfo.epfindia.gov.in/publicPortal/no-auth/misReport/home/loadEstSearchHome", "open EPFO search") + "</table></div></div>";
     h += '<div class="card"><h2>Legal History ' + srcBadge("cond", "eCourts ecosystem — FREE*") + '</h2><div class="scrollx"><table><tr><th>Court</th><th>Case</th><th>Party role</th><th>Status</th></tr>' +
       pendRow(4, "eCourts party-name search — search “" + esc(name) + "”", "https://services.ecourts.gov.in/ecourtindia_v6/", "open eCourts") + "</table></div></div>";
-    h += '<div class="card"><h2>Credit Ratings &amp; Bureau Flags ' + srcBadge("free", "CRA sites / CIBIL — FREE") + '</h2><div class="scrollx"><table><tr><th>Agency</th><th>Instrument</th><th>Rating</th><th>Date</th></tr>' +
-      pendRow(4, "SEBI-mandated CRA rationales + CIBIL suit-filed lists", gq('"' + name + '" "rating rationale" site:crisilratings.com OR site:icra.in OR site:careratings.com'), "search rationales") + "</table></div></div>";
-    h += '<div class="note"><b>Why some sections are pending:</b> GST, EPFO and court portals are captcha-gated and block cross-site requests, so a browser-only app cannot fetch them — the production pipeline (server-side) automates exactly these pulls. Everything marked LIVE above came from open APIs in real time. Use the links to pull any pending section manually today.</div>';
+    var rt = wf && wf.rating && wf.rating.rating ? wf.rating : null;
+    h += '<div class="card"><h2>Credit Ratings &amp; Bureau Flags ' +
+      srcBadge(rt ? "free" : "cond", rt ? "CRA RATIONALE — FREE · ₹0" : "CRA sites / CIBIL — FREE") +
+      '</h2><div class="scrollx"><table><tr><th>Agency</th><th>Rating</th><th>Outlook</th><th>Industry</th></tr>';
+    if (rt) {
+      h += "<tr><td>" + esc(rt.agency || "CRISIL") + "</td><td><b>" +
+        esc((rt.all_ratings && rt.all_ratings.length ? rt.all_ratings.join(", ") : rt.rating)) +
+        "</b></td><td>" + esc(rt.outlook || "—") + "</td><td>" + esc(rt.industry || "—") + "</td></tr>";
+    } else {
+      h += pendRow(4, "SEBI-mandated CRA rationales + CIBIL suit-filed lists",
+        gq('"' + name + '" "rating rationale" site:crisilratings.com OR site:icra.in OR site:careratings.com'),
+        "search rationales");
+    }
+    h += "</table></div>";
+    if (rt && rt.doc) {
+      h += '<p style="font-size:11px;color:var(--muted);margin-top:6px;">Rationale: <a target="_blank" rel="noopener" href="' +
+        esc(rt.doc) + '">open the published document →</a></p>';
+    }
+    h += '<p style="font-size:11px;color:var(--muted);margin-top:4px;">Bureau suit-filed and wilful-defaulter lists (CIBIL) are free to browse but bot-protected, so they are checked manually rather than automatically.</p></div>';
+    h += '<div class="note"><b>Why the sections above are empty — “free” is not the same as “machine-readable”.</b> ' +
+      'MCA director data, the index of charges, the GST filing table, EPFO records and eCourts are all free to a person with a browser, ' +
+      'but each is protected by a captcha (and MCA now also by a login). Software cannot read them without either defeating that protection — ' +
+      'which cobio24 will not do — or paying an intermediary that already has: a GST Suvidha Provider (₹0.10–1 per call), a courts API (about ₹2 per call), ' +
+      'or MCA’s own document service (₹100 per company, which also unlocks shareholding and full director history). ' +
+      'Every section that could be filled from a genuinely open source — registry data, credit ratings, insolvency, and financials from rating rationales or SEBI offer documents — is filled above.</div>';
     return h;
   }
 

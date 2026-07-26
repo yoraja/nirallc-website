@@ -1,16 +1,17 @@
 /* cobio24 beta — company search + full report preview
-   Data: MCA "RoC-wise Company Master Data" via data.gov.in (GODL-India).
-   Bundled index = demo subset; live lookups hit the public Data API by CIN.
-   Full report = complete 14-section format; live sections populated, pipeline
-   sections rendered in-structure with pre-filled free-source lookups. */
+   Search index: 2.2M active Indian companies (MCA master data via data.gov.in, GODL-India),
+   sharded by name prefix so the browser downloads only the slice it needs.
+   Any company (incl. struck-off) is reachable by exact CIN through the live Data API. */
 (function () {
   "use strict";
 
-  var BUILD = "26072602"; // bump on every deploy — busts browser/CDN caches on data files
+  var BUILD = "26072603"; // bump on every deploy — busts browser/CDN caches on data files
   var API_BASE = "https://api.data.gov.in/resource/4dbe5667-7b6b-41d7-82af-211562424d9a";
-  var API_KEY = "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b"; // public sample key (per-CIN lookups only)
+  var API_KEY = "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b";
   var DEMO_CIN = "U72900MH2008PTC185044";
   var CIN_RE = /^[LUF][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z0-9]{3}[0-9]{6}$/;
+  var IDX = "data/idx/";
+  var FP = "s_"; // shard filename prefix (dodges Windows-reserved names CON/PRN/AUX/NUL)
 
   var $q = document.getElementById("q");
   var $suggest = document.getElementById("suggest");
@@ -18,7 +19,18 @@
   var $report = document.getElementById("report");
   var $idxcount = document.getElementById("idxcount");
 
-  var INDEX = [], byCIN = {}, demoData = null, activeIdx = -1;
+  var manifest = null, deepSet = {}, suffixes = {};
+  var shardCache = {}, byCIN = {}, demoData = null, activeIdx = -1, searchSeq = 0;
+
+  // always-available featured rows (demo reliability, independent of shard loading)
+  var FEATURED = [
+    { c: DEMO_CIN, n: "BIGV TELECOM PRIVATE LIMITED" },
+    { c: "U73100KA2005PTC036337", n: "PROBE INFORMATION SERVICES PRIVATE LIMITED" },
+    { c: "U72300KA2012PTC066088", n: "ZAUBA TECHNOLOGIES PRIVATE LIMITED" },
+    { c: "L85110KA1989PLC009968", n: "TATA ELXSI LIMITED" },
+    { c: "U74899DL1991PLC046774", n: "HERO FINCORP LIMITED" }
+  ];
+  FEATURED.forEach(function (r) { byCIN[r.c] = byCIN[r.c] || r; });
 
   /* ---------- utils ---------- */
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -35,55 +47,110 @@
   function titleCase(s) { return String(s || "").toLowerCase().replace(/\b([a-z])/g, function (m, c) { return c.toUpperCase(); }); }
   function debounce(fn, ms) { var t; return function () { var a = arguments, self = this; clearTimeout(t); t = setTimeout(function () { fn.apply(self, a); }, ms); }; }
   function gq(terms) { return "https://www.google.com/search?q=" + encodeURIComponent(terms); }
+  function normKey(s, n) {
+    var k = String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!k) return Array(n + 1).join("_");
+    return (k + "__").slice(0, n);
+  }
+  function stateFromCIN(cin) { return /^[LUF][0-9]{5}([A-Z]{2})/.test(cin) ? RegExp.$1 : ""; }
 
-  /* ---------- index load ---------- */
-  fetch("data/companies.json?v=" + BUILD).then(function (r) { return r.json(); }).then(function (rows) {
-    INDEX = rows || [];
-    INDEX.forEach(function (r) { if (r.c) byCIN[r.c] = r; });
-    $idxcount.textContent = INDEX.length.toLocaleString("en-IN");
+  /* ---------- manifest ---------- */
+  fetch(IDX + "manifest.json?v=" + BUILD).then(function (r) { return r.json(); }).then(function (m) {
+    manifest = m;
+    (m.deep || []).forEach(function (p) { deepSet[p] = 1; });
+    suffixes = m.suffixes || {};
+    $idxcount.textContent = (m.total || 0).toLocaleString("en-IN");
   }).catch(function () {
-    $idxcount.textContent = "0";
-    showSuggestNote("Search index failed to load — full-CIN live lookup still works.");
+    $idxcount.textContent = "unavailable";
+    showSuggestNote("Search index failed to load — exact-CIN lookup still works.");
   });
 
-  /* ---------- search ---------- */
-  function showSuggestNote(msg) { $suggest.innerHTML = '<div class="snote">' + esc(msg) + "</div>"; $suggest.classList.add("open"); }
-  function closeSuggest() { $suggest.classList.remove("open"); $suggest.innerHTML = ""; activeIdx = -1; }
-  function rank(row, q) {
-    var n = row.n.toLowerCase();
-    if (n.indexOf(q) === 0) return 0;
-    if (n.indexOf(" " + q) > -1) return 1;
-    if (n.indexOf(q) > -1) return 2;
-    if (row.c && row.c.toLowerCase().indexOf(q) === 0) return 3;
-    return 9;
-  }
-  function doSearch() {
-    var raw = $q.value.trim(), q = raw.toLowerCase();
-    if (q.length < 2) { closeSuggest(); return; }
-    var cinCandidate = raw.toUpperCase().replace(/\s/g, "");
-    var isCIN = CIN_RE.test(cinCandidate);
-    var hits = [];
-    for (var i = 0; i < INDEX.length; i++) {
-      var r = INDEX[i], rk = rank(r, q);
-      if (rk < 9) { hits.push([rk, r]); if (hits.length > 400) break; }
+  /* ---------- shard loading ---------- */
+  function shardNameFor(query) {
+    var k2 = normKey(query, 2);
+    if (!deepSet[k2]) return { file: k2, partial: false };
+    if (normKey(query, 3).length >= 3 && query.replace(/[^A-Za-z0-9]/g, "").length >= 3) {
+      return { file: normKey(query, 3), partial: false };
     }
-    hits.sort(function (a, b) { return a[0] - b[0] || a[1].n.length - b[1].n.length; });
-    hits = hits.slice(0, 15);
+    return { file: k2 + "_top", partial: true };
+  }
+  function loadShard(file) {
+    if (shardCache[file]) return Promise.resolve(shardCache[file]);
+    return fetch(IDX + FP + file + ".json?v=" + BUILD).then(function (r) {
+      if (!r.ok) throw new Error("no shard");
+      return r.json();
+    }).then(function (rows) {
+      var out = rows.map(function (a) { return { c: a[0], n: a[1] + (suffixes[a[2]] || "") }; });
+      shardCache[file] = out;
+      out.forEach(function (r) { if (!byCIN[r.c]) byCIN[r.c] = r; });
+      return out;
+    }).catch(function () { shardCache[file] = []; return []; });
+  }
+
+  /* ---------- search ---------- */
+  function showSuggestNote(msg) { $suggest.innerHTML = '<div class="snote">' + msg + "</div>"; $suggest.classList.add("open"); }
+  function closeSuggest() { $suggest.classList.remove("open"); $suggest.innerHTML = ""; activeIdx = -1; }
+
+  function renderSuggestions(rows, q, opts) {
     var html = "";
-    if (isCIN) html += '<button class="srow live" data-cin="' + esc(cinCandidate) + '"><div class="nm">🔎 Live registry lookup: ' + esc(cinCandidate) + '</div><div class="meta">Query data.gov.in Data API (3.67M records) for this CIN</div></button>';
-    hits.forEach(function (h) {
-      var r = h[1];
+    if (opts.cin) {
+      html += '<button class="srow live" data-cin="' + esc(opts.cin) + '"><div class="nm">🔎 Live registry lookup: ' + esc(opts.cin) +
+        '</div><div class="meta">Query the full 3.67M-record registry for this exact CIN</div></button>';
+    }
+    rows.forEach(function (r) {
       var nm = esc(r.n).replace(new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "i"), "<mark>$1</mark>");
-      var st = (r.s || "").toLowerCase().indexOf("active") === 0 ? '<span class="pill ok">' + esc(r.s) + "</span>" : '<span class="pill bad">' + esc(r.s || "?") + "</span>";
       var demo = r.c === DEMO_CIN ? ' <span class="pill warn">FULL DEMO REPORT</span>' : "";
-      html += '<button class="srow" data-cin="' + esc(r.c) + '"><div class="nm">' + nm + demo + '</div><div class="meta"><span>' + esc(r.c) + "</span><span>" + esc(titleCase(r.st || "")) + "</span>" + st + "</div></button>";
+      html += '<button class="srow" data-cin="' + esc(r.c) + '"><div class="nm">' + nm + demo +
+        '</div><div class="meta"><span>' + esc(r.c) + "</span><span>" + esc(stateFromCIN(r.c)) + "</span></div></button>";
     });
-    if (!html) html = '<div class="snote">No match in the bundled demo index (' + INDEX.length.toLocaleString("en-IN") + ' companies). Paste a full 21-character CIN for a live lookup of all 3.67M records — or this name may use different spelling in the registry.</div>';
+    if (opts.partial) {
+      html += '<div class="snote">Showing the largest matches — type one more letter to search all companies starting with “' + esc(q.slice(0, 2).toUpperCase()) + '”.</div>';
+    } else if (!rows.length && !opts.cin) {
+      html += '<div class="snote">No active company starts with “' + esc(q) + '”. The index matches how a name <b>begins</b> — try the first word of the legal name, or paste an exact CIN.</div>';
+    } else if (opts.more) {
+      html += '<div class="snote">' + opts.more.toLocaleString("en-IN") + " more matches — keep typing to narrow.</div>";
+    }
     $suggest.innerHTML = html;
     $suggest.classList.add("open");
     activeIdx = -1;
   }
-  $q.addEventListener("input", debounce(doSearch, 130));
+
+  function doSearch() {
+    var raw = $q.value.trim(), q = raw.toLowerCase();
+    if (q.length < 2) { closeSuggest(); return; }
+    var cinCandidate = raw.toUpperCase().replace(/\s/g, "");
+    var cin = CIN_RE.test(cinCandidate) ? cinCandidate : null;
+
+    var featured = FEATURED.filter(function (r) { return r.n.toLowerCase().indexOf(q) > -1; });
+    var seq = ++searchSeq;
+    var target = shardNameFor(raw);
+
+    if (!shardCache[target.file]) {
+      renderSuggestions(featured, q, { cin: cin, loading: true });
+      var el = $suggest.querySelector(".snote");
+      $suggest.insertAdjacentHTML("beforeend", '<div class="snote">Loading company index…</div>');
+    }
+
+    loadShard(target.file).then(function (rows) {
+      if (seq !== searchSeq) return;
+      var hits = [], qq = q;
+      for (var i = 0; i < rows.length && hits.length < 400; i++) {
+        if (rows[i].n.toLowerCase().indexOf(qq) === 0) hits.push(rows[i]);
+      }
+      if (hits.length < 15) {
+        for (var j = 0; j < rows.length && hits.length < 400; j++) {
+          if (rows[j].n.toLowerCase().indexOf(qq) > 0) hits.push(rows[j]);
+        }
+      }
+      featured.forEach(function (f) {
+        if (!hits.some(function (h) { return h.c === f.c; })) hits.unshift(f);
+      });
+      var shown = hits.slice(0, 15);
+      renderSuggestions(shown, q, { cin: cin, partial: target.partial, more: hits.length > 15 ? hits.length - 15 : 0 });
+    });
+  }
+
+  $q.addEventListener("input", debounce(doSearch, 140));
   $q.addEventListener("focus", function () { if ($q.value.trim().length >= 2) doSearch(); });
   document.addEventListener("click", function (e) {
     var btn = e.target.closest ? e.target.closest(".srow") : null;
@@ -125,7 +192,7 @@
     return { c: rec.CIN, n: rec.CompanyName, r: rec.CompanyROCcode, cat: rec.CompanyCategory, sub: rec.CompanySubCategory, cl: rec.CompanyClass, ac: rec.AuthorizedCapital, pc: rec.PaidupCapital, d: rec.CompanyRegistrationdate_date, ad: rec.Registered_Office_Address, l: rec.Listingstatus, s: rec.CompanyStatus, st: rec.CompanyStateCode, ic: rec.CompanyIndustrialClassification, nic: rec.nic_code };
   }
 
-  /* ---------- shared render helpers ---------- */
+  /* ---------- render helpers ---------- */
   function srcBadge(kind, label) { return '<span class="src ' + kind + '">' + label + "</span>"; }
 
   function masterCard(row, liveState) {
@@ -164,7 +231,7 @@
       (link ? ' · <a target="_blank" rel="noopener" href="' + link + '">' + esc(linkLabel || "open source →") + "</a>" : "") + "</td></tr>";
   }
 
-  /* ---------- full demo report (BIGV) ---------- */
+  /* ---------- demo report ---------- */
   function pulseCard(p) {
     var h = '<div class="card"><h2>Compliance Pulse™ ' + srcBadge("free", "GST + EPFO + MCA + Samadhaan — FREE") + "</h2>" +
       '<div class="pulse-line"><span class="pulse-score">' + p.composite + '<span style="font-size:16px;color:var(--muted);">/100</span></span><span class="pulse-band">' + esc(p.band) + "</span></div>" +
@@ -242,8 +309,7 @@
   }
 
   function derivedComplianceCard(row) {
-    var s = String(row.s || "");
-    var sl = s.toLowerCase();
+    var s = String(row.s || ""), sl = s.toLowerCase();
     var struck = sl.indexOf("strike") > -1 || sl.indexOf("struck") > -1;
     var activeOk = sl.indexOf("active") === 0;
     var badge = function (ok, txt) { return (ok ? '<b style="color:var(--free);">' : '<b style="color:var(--paid);">') + esc(txt) + "</b>"; };
@@ -267,46 +333,33 @@
       "<tr><td>Credit events</td><td>Charges / IBBI / CIBIL</td><td class='n'>15%</td></tr>" +
       "<tr><td>MSME payment complaints</td><td>MSME Samadhaan</td><td class='n'>5%</td></tr>" +
       '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">See the <a href="#/c/' + DEMO_CIN + '">completed demo report</a> for a computed Pulse.</p></div>';
-
     h += '<div class="card"><h2>AI Analyst Summary ' + srcBadge("calc", "PIPELINE — AI-generated") + '</h2><div class="locked">🤖 Written automatically once the sections below are populated: one-line verdict, growth &amp; strength read, red-flag digest (remuneration vs profit, related-party concentration, filing gaps), litigation posture, notable shareholders.</div></div>';
-
     h += waterfallCard(row);
-
     h += '<div class="card"><h2>Balance Sheet &amp; P&amp;L (12 years) ' + srcBadge("paid", "MCA AOC-4 — via waterfall or ₹100") + '</h2><div class="scrollx"><table><tr><th></th><th class="n">FY (latest−2)</th><th class="n">FY (latest−1)</th><th class="n">FY (latest)</th></tr>' +
       "<tr><td>Net Revenue</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
       "<tr><td>EBITDA</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
       "<tr><td>Profit for the Period</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
       "<tr><td>Total Equity</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
       "<tr><td>Total Assets</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
-      pendRow(4, "AOC-4 filings (waterfall above decides free vs ₹100)", null) +
-      "</table></div></div>";
-
+      pendRow(4, "AOC-4 filings (waterfall above decides free vs ₹100)", null) + "</table></div></div>";
     h += '<div class="card"><h2>Key Ratios &amp; Peer Comparison ' + srcBadge("calc", "DERIVED after financials") + '</h2><div class="scrollx"><table><tr><th>Metric</th><th class="n">Company</th><th class="n">Industry median</th></tr>' +
       ["Revenue Growth (%)", "EBITDA Margin (%)", "ROCE (%)", "Debt / Equity", "Interest Coverage"].map(function (m) { return "<tr><td>" + m + "</td><td class='n'>—</td><td class='n'>—</td></tr>"; }).join("") +
       "</table></div></div>";
-
     h += '<div class="card"><h2>Shareholding &amp; Securities ' + srcBadge("paid", "MGT-7 / PAS-3 — via ₹100 docs") + '</h2><div class="scrollx"><table><tr><th>Holder</th><th class="n">%</th><th>Remarks</th></tr>' + pendRow(3, "MGT-7 annual return", null) + "</table></div></div>";
-
     h += '<div class="card"><h2>Directors &amp; Signatories ' + srcBadge("free", "MCA DIN data — FREE") + '</h2><div class="scrollx"><table><tr><th>Name</th><th>DIN</th><th>Role</th><th>Tenure</th><th>Other directorships</th></tr>' +
       pendRow(5, "MCA V3 director master data (free, captcha-gated)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") +
       '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">Names, DINs and directorship networks only — no personal contact details, by design.</p></div>';
-
     h += '<div class="card"><h2>Charges (Borrowing Security) ' + srcBadge("free", "MCA Index of Charges — FREE") + '</h2><div class="scrollx"><table><tr><th>Holder</th><th class="n">Amount</th><th>Created</th><th>Status</th></tr>' +
       pendRow(4, "MCA Index of Charges (free, captcha-gated)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") + "</table></div></div>";
-
     h += '<div class="card"><h2>GST Registrations &amp; Filing Discipline ' + srcBadge("cond", "GSTN — FREE* (captcha)") + '</h2><div class="scrollx"><table><tr><th>GSTIN</th><th>State</th><th>Status</th><th>Filing history</th></tr>' +
       pendRow(4, "gst.gov.in Search Taxpayer (by PAN) + Show Filing Table", "https://services.gst.gov.in/services/searchtp", "open GST search") + "</table></div></div>";
-
     h += '<div class="card"><h2>EPFO Payment Behaviour ' + srcBadge("cond", "EPFO — FREE* (captcha)") + '</h2><div class="scrollx"><table><tr><th>Establishment</th><th class="n">Employees</th><th class="n">Amount</th><th>Timeliness</th></tr>' +
       pendRow(4, "EPFO establishment + TRRN search — search “" + esc(name) + "”", "https://unifiedportal-epfo.epfindia.gov.in/publicPortal/no-auth/misReport/home/loadEstSearchHome", "open EPFO search") + "</table></div></div>";
-
     h += '<div class="card"><h2>Legal History ' + srcBadge("cond", "eCourts ecosystem — FREE*") + '</h2><div class="scrollx"><table><tr><th>Court</th><th>Case</th><th>Party role</th><th>Status</th></tr>' +
       pendRow(4, "eCourts party-name search — search “" + esc(name) + "”", "https://services.ecourts.gov.in/ecourtindia_v6/", "open eCourts") + "</table></div></div>";
-
     h += '<div class="card"><h2>Credit Ratings &amp; Bureau Flags ' + srcBadge("free", "CRA sites / CIBIL — FREE") + '</h2><div class="scrollx"><table><tr><th>Agency</th><th>Instrument</th><th>Rating</th><th>Date</th></tr>' +
-      pendRow(4, "SEBI-mandated CRA rationales + CIBIL suit-filed lists", gq('"' + name + '" "rating rationale" OR "press release" site:crisilratings.com OR site:icra.in OR site:careratings.com OR site:indiaratings.co.in OR site:acuite.in'), "search rationales") + "</table></div></div>";
-
-    h += '<div class="note"><b>Why some sections are pending:</b> GST, EPFO and court portals are captcha-gated and block cross-site requests, so a browser-only app cannot fetch them — the production pipeline (server-side, per the cobio24 roadmap) automates exactly these pulls. Everything marked LIVE above came from open APIs in real time. Use the links to pull any pending section manually today.</div>';
+      pendRow(4, "SEBI-mandated CRA rationales + CIBIL suit-filed lists", gq('"' + name + '" "rating rationale" site:crisilratings.com OR site:icra.in OR site:careratings.com'), "search rationales") + "</table></div></div>";
+    h += '<div class="note"><b>Why some sections are pending:</b> GST, EPFO and court portals are captcha-gated and block cross-site requests, so a browser-only app cannot fetch them — the production pipeline (server-side) automates exactly these pulls. Everything marked LIVE above came from open APIs in real time. Use the links to pull any pending section manually today.</div>';
     return h;
   }
 
@@ -323,7 +376,7 @@
     function render(r, liveState) {
       var chips = "";
       if (r) {
-        chips += (String(r.s || "").toLowerCase().indexOf("active") === 0 ? '<span class="pill ok">' : '<span class="pill bad">') + esc(r.s || "—") + "</span>";
+        if (r.s) chips += (String(r.s).toLowerCase().indexOf("active") === 0 ? '<span class="pill ok">' : '<span class="pill bad">') + esc(r.s) + "</span>";
         if (r.l) chips += '<span class="pill info">' + esc(r.l) + "</span>";
         if (r.cl) chips += '<span class="pill info">' + esc(r.cl) + "</span>";
         if (isDemo) chips += '<span class="pill warn">FULL DEMO REPORT</span>';
@@ -332,7 +385,7 @@
         '<button class="backbtn" onclick="window.print()" title="Print or save as PDF">🖨 Print / PDF</button></div>' +
         '<div class="cohead"><h1>' + esc(r ? r.n : cin) + '</h1><div class="chips">' + chips + "</div></div>";
       if (r) h += masterCard(r, liveState);
-      else h += '<div class="err">This CIN was not found in the bundled index and the live registry lookup failed. Check the CIN, or retry when online.</div>';
+      else h += '<div class="err">This CIN was not found in the index and the live registry lookup failed. Check the CIN, or retry when online.</div>';
 
       if (isDemo) {
         h += demoData ? demoSections(demoData) : '<div class="card"><div class="skel" style="width:60%"></div><br><div class="skel"></div><br><div class="skel" style="width:80%"></div></div>';
@@ -348,18 +401,19 @@
     }
 
     window.c24ToggleFull = function () {
-      var el = document.getElementById("fullreport");
-      var cta = document.getElementById("fullreport-cta");
+      var el = document.getElementById("fullreport"), cta = document.getElementById("fullreport-cta");
       if (el) { el.style.display = "block"; if (cta) cta.style.display = "none"; window.scrollTo({ top: el.offsetTop - 70, behavior: "smooth" }); }
     };
 
-    render(row, row ? "Showing bundled index data · refreshing live from data.gov.in…" : "Looking up live from data.gov.in…");
+    render(row, row ? "Index data · refreshing live from data.gov.in…" : "Looking up live from data.gov.in…");
 
     if (isDemo && !demoData) {
-      fetch("data/bigv-demo.json?v=" + BUILD).then(function (x) { return x.json(); }).then(function (d) { demoData = d; if (location.hash.indexOf(cin) > -1) render(byCIN[cin] || null, lastLiveState); });
+      fetch("data/bigv-demo.json?v=" + BUILD).then(function (x) { return x.json(); }).then(function (d) {
+        demoData = d; if (location.hash.indexOf(cin) > -1) render(byCIN[cin] || null, lastLiveState);
+      });
     }
 
-    var lastLiveState = row ? "Bundled index data (live refresh unavailable)" : "";
+    var lastLiveState = row ? "Index data (live refresh unavailable)" : "";
     liveFetch(cin).then(function (liveRow) {
       if (location.hash.indexOf(cin) === -1) return;
       var wasOpen = document.getElementById("fullreport") && document.getElementById("fullreport").style.display !== "none";
@@ -368,15 +422,13 @@
         lastLiveState = '<span class="ok">✓ Live from data.gov.in</span> · fetched ' + new Date().toLocaleTimeString() + " · dataset snapshot up to 3 Nov 2023 · GODL-India";
         render(liveRow, lastLiveState);
       } else if (row) {
-        lastLiveState = "Bundled index data · CIN not returned by the live API";
+        lastLiveState = "Index data · CIN not returned by the live API";
         render(row, lastLiveState);
-      } else {
-        render(null, "");
-      }
+      } else { render(null, ""); }
       if (wasOpen) window.c24ToggleFull();
     }).catch(function () {
       if (location.hash.indexOf(cin) === -1) return;
-      if (row) { lastLiveState = "Bundled index data · live API unreachable (rate limit or offline)"; render(row, lastLiveState); }
+      if (row) { lastLiveState = "Index data · live API unreachable (rate limit or offline)"; render(row, lastLiveState); }
       else render(null, "");
     });
   }

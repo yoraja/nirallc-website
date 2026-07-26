@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "26072605";
+  var BUILD = "26072606";
   // Waterfall results are republished often; key their URL to a 10-minute bucket so a stale
   // copy can never sit in a browser cache the way it did on the 26 Jul 03:03 report.
   var WFV = Math.floor(Date.now() / 600000); // bump on every deploy — busts browser/CDN caches on data files
@@ -408,19 +408,67 @@
       "</div></div>";
   }
 
+  function computedPulseCard(p) {
+    var color = p.composite >= 80 ? "var(--free)" : p.composite >= 60 ? "var(--cond)" : "var(--paid)";
+    var h = '<div class="card"><h2>Compliance Pulse™ ' + srcBadge("free", "COMPUTED — " + esc(p.coverage)) + "</h2>" +
+      '<div class="pulse-line"><span class="pulse-score" style="color:' + color + ';">' + p.composite +
+      '<span style="font-size:16px;color:var(--muted);">/100</span></span>' +
+      '<span class="pulse-band" style="color:' + color + ';">' + esc(p.band) + "</span></div>" +
+      '<p style="font-size:13px;margin:6px 0 10px;">' + esc(p.interpretation) + "</p>" +
+      '<div class="scrollx"><table><tr><th>Signal</th><th>Reading</th><th class="n">Score (weight)</th></tr>';
+    (p.signals || []).forEach(function (s) {
+      h += "<tr><td><b>" + esc(s.name) + "</b><br><span style='color:var(--muted);font-size:11px;'>" +
+        esc(s.source) + "</span></td><td>" + esc(s.reading) + '</td><td class="n"><b>' + s.score +
+        "</b> — " + esc(s.band) + " (" + s.weight + "%)</td></tr>";
+    });
+    h += "</table></div>";
+    if ((p.unavailable || []).length) {
+      h += '<p style="font-size:11px;color:var(--muted);margin-top:8px;">Not included: ' +
+        esc(p.unavailable.join(" · ")) + " — these need a captcha-gated or paid source.</p>";
+    }
+    return h + "</div>";
+  }
+
+  function computedAnalystCard(a) {
+    var h = '<div class="card"><h2>Analyst Summary ' + srcBadge("calc", "GENERATED FROM THE EXTRACTED FIGURES") + "</h2>" +
+      '<p style="font-size:13.5px;font-weight:600;margin-bottom:6px;">' + esc(a.oneLine) + "</p>";
+    (a.signals || []).forEach(function (s) {
+      h += '<div class="ai-item' + (s.flag ? " flag" : "") + '"><b>' + esc(s.label) + "</b>" + esc(s.text) + "</div>";
+    });
+    return h + '<p style="font-size:11px;color:var(--muted);margin-top:8px;">' + esc(a.basis || "") + "</p></div>";
+  }
+
+  function ratingCard(r) {
+    return '<div class="card"><h2>Credit Rating ' + srcBadge("free", "CRA RATIONALE — FREE") + '</h2><div class="kv">' +
+      "<div><b>Agency</b><span>" + esc(r.agency || "—") + "</span></div>" +
+      "<div><b>Rating</b><span><b>" + esc(r.rating || "—") + "</b></span></div>" +
+      "<div><b>Outlook</b><span>" + esc(r.outlook || "—") + "</span></div>" +
+      "<div><b>Industry</b><span>" + esc(r.industry || "—") + "</span></div>" +
+      "</div></div>";
+  }
+
   function shellSections(row, wf) {
     var name = row.n || "";
     var h = "";
-    h += '<div class="card"><h2>Compliance Pulse™ ' + srcBadge("calc", "PIPELINE — computed from free signals") + '</h2>' +
-      '<div class="pulse-line"><span class="pulse-score" style="color:var(--muted);">—<span style="font-size:16px;">/100</span></span><span class="pulse-band" style="color:var(--muted);">COMPUTED ON ORDER</span></div>' +
-      '<div class="scrollx"><table><tr><th>Signal</th><th>Source (all free)</th><th class="n">Weight</th></tr>' +
-      "<tr><td>GST filing discipline</td><td>GSTN filing table</td><td class='n'>30%</td></tr>" +
-      "<tr><td>EPFO payment behaviour</td><td>EPFO TRRN records</td><td class='n'>30%</td></tr>" +
-      "<tr><td>MCA standing</td><td>Master data (live above)</td><td class='n'>20%</td></tr>" +
-      "<tr><td>Credit events</td><td>Charges / IBBI / CIBIL</td><td class='n'>15%</td></tr>" +
-      "<tr><td>MSME payment complaints</td><td>MSME Samadhaan</td><td class='n'>5%</td></tr>" +
-      '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">See the <a href="#/c/' + DEMO_CIN + '">completed demo report</a> for a computed Pulse.</p></div>';
-    h += '<div class="card"><h2>AI Analyst Summary ' + srcBadge("calc", "PIPELINE — AI-generated") + '</h2><div class="locked">🤖 Written automatically once the sections below are populated: one-line verdict, growth &amp; strength read, red-flag digest (remuneration vs profit, related-party concentration, filing gaps), litigation posture, notable shareholders.</div></div>';
+    if (wf && wf.pulse) {
+      h += computedPulseCard(wf.pulse);
+    } else {
+      h += '<div class="card"><h2>Compliance Pulse™ ' + srcBadge("calc", "PIPELINE — computed from free signals") + '</h2>' +
+        '<div class="pulse-line"><span class="pulse-score" style="color:var(--muted);">—<span style="font-size:16px;">/100</span></span><span class="pulse-band" style="color:var(--muted);">COMPUTED ON ORDER</span></div>' +
+        '<div class="scrollx"><table><tr><th>Signal</th><th>Source (all free)</th><th class="n">Weight</th></tr>' +
+        "<tr><td>GST filing discipline</td><td>GSTN filing table</td><td class='n'>30%</td></tr>" +
+        "<tr><td>EPFO payment behaviour</td><td>EPFO TRRN records</td><td class='n'>30%</td></tr>" +
+        "<tr><td>MCA standing</td><td>Master data (live above)</td><td class='n'>20%</td></tr>" +
+        "<tr><td>Credit events</td><td>Charges / IBBI / CIBIL</td><td class='n'>15%</td></tr>" +
+        "<tr><td>MSME payment complaints</td><td>MSME Samadhaan</td><td class='n'>5%</td></tr>" +
+        '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">See the <a href="#/c/' + DEMO_CIN + '">completed demo report</a> for a computed Pulse.</p></div>';
+    }
+    if (wf && wf.analyst) {
+      h += computedAnalystCard(wf.analyst);
+    } else {
+      h += '<div class="card"><h2>Analyst Summary ' + srcBadge("calc", "PIPELINE") + '</h2><div class="locked">🤖 Written automatically once financials are extracted: growth and profitability read, leverage, asset quality, rating interpretation and a red-flag digest.</div></div>';
+    }
+    if (wf && wf.rating && wf.rating.rating) h += ratingCard(wf.rating);
     h += wf ? waterfallResultCard(wf) : waterfallCard(row);
     if (wf && wf.financials) h += extractedFinancialsCard(wf);
     h += '<div class="card"><h2>Balance Sheet &amp; P&amp;L (12 years) ' + srcBadge("paid", "MCA AOC-4 — via waterfall or ₹100") + '</h2><div class="scrollx"><table><tr><th></th><th class="n">FY (latest−2)</th><th class="n">FY (latest−1)</th><th class="n">FY (latest)</th></tr>' +
@@ -430,9 +478,21 @@
       "<tr><td>Total Equity</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
       "<tr><td>Total Assets</td>" + "<td class='n'>—</td>".repeat(3) + "</tr>" +
       pendRow(4, "AOC-4 filings (waterfall above decides free vs ₹100)", null) + "</table></div></div>";
-    h += '<div class="card"><h2>Key Ratios &amp; Peer Comparison ' + srcBadge("calc", "DERIVED after financials") + '</h2><div class="scrollx"><table><tr><th>Metric</th><th class="n">Company</th><th class="n">Industry median</th></tr>' +
-      ["Revenue Growth (%)", "EBITDA Margin (%)", "ROCE (%)", "Debt / Equity", "Interest Coverage"].map(function (m) { return "<tr><td>" + m + "</td><td class='n'>—</td><td class='n'>—</td></tr>"; }).join("") +
-      "</table></div></div>";
+    if (wf && wf.ratios && (wf.ratios.rows || []).length) {
+      h += '<div class="card"><h2>Derived Ratios ' + srcBadge("calc", "COMPUTED FROM THE EXTRACTED FIGURES") + '</h2><div class="scrollx"><table><tr><th></th>';
+      (wf.ratios.headers || []).forEach(function (c) { h += '<th class="n">' + esc(c) + "</th>"; });
+      h += "</tr>";
+      wf.ratios.rows.forEach(function (r) {
+        h += "<tr>";
+        r.forEach(function (c, i) { h += (i === 0 ? "<td>" : '<td class="n">') + esc(c) + "</td>"; });
+        h += "</tr>";
+      });
+      h += '</table></div><p style="font-size:11px;color:var(--muted);margin-top:6px;">Peer medians require the industry cohort to be extracted first — in progress across the rated universe.</p></div>';
+    } else {
+      h += '<div class="card"><h2>Key Ratios &amp; Peer Comparison ' + srcBadge("calc", "DERIVED after financials") + '</h2><div class="scrollx"><table><tr><th>Metric</th><th class="n">Company</th><th class="n">Industry median</th></tr>' +
+        ["Revenue Growth (%)", "EBITDA Margin (%)", "ROCE (%)", "Debt / Equity", "Interest Coverage"].map(function (m) { return "<tr><td>" + m + "</td><td class='n'>—</td><td class='n'>—</td></tr>"; }).join("") +
+        "</table></div></div>";
+    }
     h += '<div class="card"><h2>Shareholding &amp; Securities ' + srcBadge("paid", "MGT-7 / PAS-3 — via ₹100 docs") + '</h2><div class="scrollx"><table><tr><th>Holder</th><th class="n">%</th><th>Remarks</th></tr>' + pendRow(3, "MGT-7 annual return", null) + "</table></div></div>";
     h += '<div class="card"><h2>Directors &amp; Signatories ' + srcBadge("free", "MCA DIN data — FREE") + '</h2><div class="scrollx"><table><tr><th>Name</th><th>DIN</th><th>Role</th><th>Tenure</th><th>Other directorships</th></tr>' +
       pendRow(5, "MCA V3 director master data (free, captcha-gated)", "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do", "open MCA search") +
